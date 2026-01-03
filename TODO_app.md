@@ -556,14 +556,43 @@ uvicorn main:app --reload
 
 ## Step 8: 완성 체크리스트
 
-- [ ] 프로젝트 폴더 생성
-- [ ] 가상환경 설정 및 패키지 설치
+### 기본 설정
+- [ ] 프로젝트 폴더 생성 (`mkdir todo-app && cd todo-app`)
+- [ ] 가상환경 생성 (`python -m venv venv`)
+- [ ] 가상환경 활성화 (`source venv/bin/activate`)
+- [ ] 패키지 설치 (`pip install fastapi uvicorn sqlalchemy`)
+- [ ] requirements.txt 생성
+
+### 코드 작성
 - [ ] database.py 작성
+  - [ ] DB URL 설정 (SQLite)
+  - [ ] Engine 생성
+  - [ ] SessionLocal 설정
+  - [ ] Base 클래스 생성
+  - [ ] get_db() 의존성 함수 작성
 - [ ] models.py 작성
+  - [ ] Todo 모델 정의
+  - [ ] id, title, description, completed 필드
+  - [ ] created_at, updated_at 날짜 필드
 - [ ] schemas.py 작성
+  - [ ] TodoCreate 스키마
+  - [ ] TodoUpdate 스키마
+  - [ ] TodoResponse 스키마
+  - [ ] TodoDeleteResponse 스키마
 - [ ] main.py 작성
-- [ ] 서버 실행 확인
-- [ ] Swagger UI에서 CRUD 테스트
+  - [ ] GET /todos (전체 조회)
+  - [ ] GET /todos/{id} (단건 조회)
+  - [ ] POST /todos (생성)
+  - [ ] PUT /todos/{id} (수정)
+  - [ ] DELETE /todos/{id} (삭제)
+
+### 테스트
+- [ ] 서버 실행 확인 (`uvicorn main:app --reload`)
+- [ ] Swagger UI 접속 (http://127.0.0.1:8000/docs)
+- [ ] POST로 할일 생성 테스트
+- [ ] GET으로 목록 조회 테스트
+- [ ] PUT으로 수정 테스트
+- [ ] DELETE로 삭제 테스트
 
 ---
 
