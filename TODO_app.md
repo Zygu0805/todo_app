@@ -195,7 +195,9 @@ SQLAlchemy Models
 DB 테이블 구조 정의
 """
 
-from sqlalchemy import Column, Integer, String, Boolean
+from datetime import datetime
+
+from sqlalchemy import Column, Integer, String, Boolean, DateTime
 
 from database import Base
 
@@ -225,6 +227,14 @@ class Todo(Base):
     # 완료 여부
     # default=False: 새로 생성하면 기본값 False
     completed = Column(Boolean, default=False)
+
+    # 생성 일시
+    # default=datetime.now: 생성 시 현재 시간 자동 저장
+    created_at = Column(DateTime, default=datetime.now)
+
+    # 수정 일시
+    # onupdate=datetime.now: 수정할 때마다 자동 갱신
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 ```
 
 ### 코드 설명
@@ -235,6 +245,7 @@ class Todo(Base):
 | `Integer` | 정수 | 1, 2, 100 |
 | `String(n)` | 문자열 (최대 n자) | "할일1" |
 | `Boolean` | True/False | True |
+| `DateTime` | 날짜와 시간 | 2026-01-01 12:30:00 |
 
 **주요 옵션:**
 | 옵션 | 설명 |
@@ -242,6 +253,7 @@ class Todo(Base):
 | `primary_key=True` | 기본키 (고유 식별자) |
 | `nullable=False` | NULL 불가 (필수값) |
 | `default=값` | 기본값 설정 |
+| `onupdate=값` | UPDATE 시 자동 갱신 |
 
 ---
 
@@ -255,6 +267,8 @@ Pydantic Schemas
 API 요청/응답 데이터 형식 정의
 """
 
+from datetime import datetime
+
 from pydantic import BaseModel
 
 # =============================================================================
@@ -266,6 +280,7 @@ class TodoCreate(BaseModel):
 
     - id는 DB가 자동 생성하므로 여기 없음
     - completed는 기본값 False
+    - created_at, updated_at은 DB가 자동 생성
     """
     title: str
     description: str | None = None  # 선택 (없으면 None)
@@ -280,6 +295,7 @@ class TodoUpdate(BaseModel):
     할일 수정 시 필요한 데이터
 
     - 모든 필드 선택사항 (변경할 것만 보내면 됨)
+    - updated_at은 DB가 자동 갱신
     """
     title: str | None = None
     description: str | None = None
@@ -300,18 +316,35 @@ class TodoResponse(BaseModel):
     title: str
     description: str | None
     completed: bool
+    created_at: datetime
+    updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# =============================================================================
+# 삭제 응답용 스키마
+# =============================================================================
+class TodoDeleteResponse(BaseModel):
+    """
+    할일 삭제 후 응답 형식
+
+    - message: 삭제 완료 메시지
+    - todos: 삭제 후 남은 전체 할일 목록
+    """
+    message: str
+    todos: list[TodoResponse]
 ```
 
 ### 코드 설명
 
-**왜 스키마가 3개?**
+**왜 스키마가 4개?**
 
 ```
-TodoCreate   → POST 요청 (생성할 때)
-TodoUpdate   → PUT 요청 (수정할 때)
-TodoResponse → 응답 (조회할 때)
+TodoCreate         → POST 요청 (생성할 때)
+TodoUpdate         → PUT 요청 (수정할 때)
+TodoResponse       → 응답 (조회할 때)
+TodoDeleteResponse → DELETE 응답 (삭제 후 전체 목록 반환)
 ```
 
 **`str | None` 문법:**
@@ -341,7 +374,7 @@ from sqlalchemy.orm import Session
 
 from database import engine, Base, get_db
 from models import Todo
-from schemas import TodoCreate, TodoUpdate, TodoResponse
+from schemas import TodoCreate, TodoUpdate, TodoResponse, TodoDeleteResponse
 
 # =============================================================================
 # 테이블 생성
@@ -455,12 +488,12 @@ def update_todo(
 # -----------------------------------------------------------------------------
 # 5. 삭제 (DELETE /todos/{id})
 # -----------------------------------------------------------------------------
-@app.delete("/todos/{todo_id}", status_code=204)
+@app.delete("/todos/{todo_id}", response_model=TodoDeleteResponse)
 def delete_todo(todo_id: int, db: Session = Depends(get_db)):
     """
-    할일을 삭제합니다.
+    할일을 삭제하고 남은 전체 목록을 반환합니다.
 
-    - status_code=204: 성공했지만 반환 데이터 없음
+    - 삭제 완료 메시지와 함께 남은 할일 목록 반환
     """
     todo = db.query(Todo).filter(Todo.id == todo_id).first()
     if not todo:
@@ -468,7 +501,13 @@ def delete_todo(todo_id: int, db: Session = Depends(get_db)):
 
     db.delete(todo)
     db.commit()
-    return None  # 204는 본문 없음
+
+    # 삭제 후 남은 전체 목록 조회
+    remaining_todos = db.query(Todo).all()
+    return {
+        "message": f"Todo {todo_id} 삭제 완료",
+        "todos": remaining_todos
+    }
 ```
 
 ---
