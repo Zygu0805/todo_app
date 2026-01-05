@@ -19,6 +19,14 @@ def get_todos(db: Session = Depends(get_db)):
     todos = db.query(Todo).all()
     return todos
 
+@app.get("/todos")
+def get_todos(completed: bool | None = None, db: Session = Depends(get_db)):
+    query = db.query(Todo)
+    if completed is not None:
+        query = query.filter(Todo.completed == completed)
+    
+    return query.all()
+
 @app.get("/todos/{todo_id}", response_model=TodoResponse)
 def get_todo(todo_id: int, db : Session = Depends(get_db)):
     todo = db.query(Todo).filter(Todo.id == todo_id).first()
@@ -26,7 +34,7 @@ def get_todo(todo_id: int, db : Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Todo not found")
     return todo
 
-@app.post("/todos", response_model=TodoResponse,status_code=201)
+@app.post("/todos", response_model=TodoResponse, status_code=201)
 def create_todo(todo: TodoCreate, db: Session = Depends(get_db)):
     db_todo = Todo(**todo.model_dump())
     db.add(db_todo)
@@ -40,6 +48,23 @@ def update_todo(todo_id: int, todo: TodoUpdate, db: Session = Depends(get_db)):
 
     if not db_todo:
         raise HTTPException(status_code=404, detail="todo not found")
+    
+    update_data = todo.model_dump(exclude_unset=True)
+
+    for field, value in update_data.items():
+        setattr(db_todo, field, value)
+
+    db.commit()
+    db.refresh(db_todo)
+    return db_todo
+
+
+@app.put("/todos", response_model=TodoResponse)
+def update_todo(title: str, todo: TodoUpdate, db: Session = Depends(get_db)):
+    db_todo = db.query(Todo).filter(Todo.title == title).first()
+
+    if not db_todo:
+        raise HTTPException(status_code=404, detail="todo no found")
     
     update_data = todo.model_dump(exclude_unset=True)
 
