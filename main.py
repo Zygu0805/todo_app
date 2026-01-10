@@ -5,7 +5,6 @@ from database import engine, Base, get_db
 from models import Todo
 from schemas import TodoCreate, TodoUpdate, TodoResponse, TodoDeleteResponse
 
-
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
